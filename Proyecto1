@@ -1,0 +1,494 @@
+;==========================================
+; Archivo Proyecto_1.s
+; Dispositivo: PIC16F887
+;Autor: Christian Campos
+;Compilador pic-as (v2.30), MPLABX V5.40
+;
+; Programa: Contador binario de 4 bits en el que cada incremento se realizará cada 100ms
+; Hardware: 
+; 
+;Creado: Marzo 3, 2023
+; Última modficación: Marzo 19, 2023
+;==========================================
+
+    PROCESSOR 16F887
+    #include <xc.inc>
+
+;============ CONFIGURACION ============
+
+  CONFIG FOSC = INTRC_NOCLKOUT
+    CONFIG WDTE = OFF
+    CONFIG PWRTE = ON
+    CONFIG MCLRE = OFF
+    CONFIG CP = OFF
+    CONFIG CPD = OFF
+
+    CONFIG BOREN = OFF
+    CONFIG IESO = OFF   
+    CONFIG FCMEN = OFF
+    CONFIG LVP = OFF
+
+    CONFIG WRT = OFF
+    CONFIG BOR4V = BOR40V
+    
+    FR_0	    EQU 2
+    FR_1    EQU 3
+    
+    On_Off EQU 0
+    Signal_s  EQU 1
+    
+    
+    
+;============ VARIABLES ============
+
+    PSECT udata_bank0
+    
+    W_temp: DS 1
+    STATUS_temp: DS 1
+    
+    control_Hz: DS 1
+    control_Signal: DS 1
+    control_FR: DS 1
+    
+    control_On: DS 1
+    
+    offset_cuadrada: DS 3
+    
+    cont_FR: DS 3
+    contador: DS 8
+    cont_tabla: DS 4
+;============ RESET ============
+    
+    PSECT resVect, class=CODE, abs, delta=2
+    ORG 00h
+    
+    resetVec: 
+    PAGESEL main
+    goto main
+       
+	
+;============ INTERRUPCIONES ============
+    ORG 04h
+    
+    push:
+	movwf	W_temp
+	swapf	STATUS, W
+	movwf	STATUS_temp
+	
+    isr:
+	btfsc	RBIF
+	call	int_PORTB
+	
+    pop:
+	swapf	STATUS_temp, W
+	movwf	STATUS
+	swapf	W_temp, F
+	swapf	W_temp, W
+	retfie
+
+;============ SUBRUTINAS INTERRUPCIONES ============	
+	
+    int_PORTB:
+	
+	
+	btfss PORTB, On_Off; Interrupción por PB1 encendemos el generador de funciones
+	incf control_On
+	
+	btfss control_On, 0 ;Si el generador de frecuencias está encendido no podemos cambiar su configuración
+	call signal_FR
+	
+	bcf	RBIF
+	return
+    signal_FR:
+    
+	btfss	PORTB, FR_0 ;Interrupcuón por PB3 aumentamos la frecuencia
+	incf cont_FR
+	
+	btfss	PORTB, FR_1 ; Interrupción por PB2 decrementamos la frecuencia
+	decf cont_FR
+	
+	movf cont_FR, W
+	andlw 0xF;
+	movwf cont_FR
+	
+	btfss PORTB, Signal_s; Interrupción por PB0 cambiamos el modo del voltaje de salida
+	incf control_Signal
+    return
+
+	
+;============ MAIN ============
+	
+    PSECT code, delta=2, abs
+    ORG 180h
+    
+    tabla:
+	clrf	PCLATH
+	bsf	PCLATH, 0	    ; PCLATH en 01
+	addwf	PCL	    ; PC = PCLATH + PCL (offset)
+	retlw 0000B; 0
+	retlw 0001B; 1
+	retlw 0010B; 2
+	retlw 0011B; 3
+	retlw 0100B; 4
+	retlw 0101B; 5
+	retlw 0110B; 6
+	retlw 0111B; 7
+	retlw 1000B; 8
+	retlw 1001B; 9
+    
+    tabla_FR:
+	    clrf	PCLATH
+	    bsf	PCLATH, 0	    ; PCLATH en 01
+	    andlw	111B; No pasar de 8
+	    addwf	PCL	    ; PC = PCLATH + PCL (offset)
+retlw	01010111B
+retlw	01010110B
+retlw	01010010B
+retlw	01010010B
+retlw	01011111B
+retlw	01011111B
+retlw	01011111B
+retlw	01011111B
+
+
+
+
+	
+	
+	tabla_FR2:
+	    clrf	PCLATH
+	    bsf	PCLATH, 0	    ; PCLATH en 01
+	    andlw	111B; No pasar de 8
+	    addwf	PCL	    ; PC = PCLATH + PCL (offset)
+retlw	11110001B
+retlw	11111101B
+retlw	11111011B
+retlw	11111111B
+retlw	11111011B
+retlw	11111101B
+retlw	11111110B
+retlw	11111111B
+
+
+
+
+
+ tabla_D1:
+	clrf	PCLATH
+	bsf	PCLATH, 0	    ; PCLATH en 01
+	andlw	111B; No pasar de 8
+	addwf	PCL	    ; PC = PCLATH + PCL (offset)
+	retlw	0B
+retlw	0B
+retlw	0B
+retlw	0B
+retlw	0B
+retlw	1B
+retlw	1B
+retlw	11B
+
+
+	tabla_D2:
+	clrf	PCLATH
+	bsf	PCLATH, 0	    ; PCLATH en 01
+	andlw	111B	    ; No pasar de 8
+	addwf	PCL	    ; PC = PCLATH + PCL (offset)
+retlw	0B
+retlw	0B
+retlw	1B
+retlw	101B
+retlw	111B
+retlw	11B
+retlw	1001B
+retlw	1001B
+
+	tabla_D3:
+	clrf	PCLATH
+	bsf	PCLATH, 0	    ; PCLATH en 01
+	andlw	111B	    ; No pasar de 8
+	addwf	PCL	    ; PC = PCLATH + PCL (offset)
+retlw	0B
+retlw	1B
+retlw	0B
+retlw	0B
+retlw	111B
+retlw	0B
+retlw	101B
+retlw	0B
+
+
+	
+	tabla_D4:
+	clrf	PCLATH
+	bsf	PCLATH, 0	    ; PCLATH en 01
+	andlw	111B; No pasar de 8
+	addwf	PCL	    ; PC = PCLATH + PCL (offset)
+	retlw	1B
+retlw	0B
+retlw	0B
+retlw	0B
+retlw	101B
+retlw	0B
+retlw	0B
+retlw	0B
+
+    main:
+	call config_io
+	call config_clk
+	;call config_tmr0
+	call config_int
+	BANKSEL	PORTA
+	goto inicial
+;============ CONFIG I/O ============
+    
+    config_io:
+    
+	BANKSEL ANSEL
+	clrf    ANSEL		; PINES DIGITALES
+	clrf    ANSELH
+
+	BANKSEL TRISA
+	clrf	TRISA		; PORTA Salida LEDS DAC
+	;Cambiar frecuencia
+	bsf	TRISB, FR_0;3
+	bsf	TRISB, FR_1;2	
+	;Cambiar Hz-kHz
+	bsf TRISB, On_Off; 1
+	;Cambiar de modo
+	bsf TRISB,  Signal_s;0
+	movlw	11110000B	;PORTC Salida para displays (74LS47)
+	movwf TRISC
+	movlw	11110000B
+	movwf TRISD		; PORTD Salida para control displays
+	clrf TRISE		; PORTE para las banderas de Hz y de los modos (triangular y cuadrada)
+	
+	BANKSEL	OPTION_REG	; Habilitar globalmente pullup PORTB
+	bcf	OPTION_REG, 7
+	BANKSEL	WPUB		; Configuracion Pullup PORTB
+	movlw	00001111B	
+	movwf	WPUB
+	
+	BANKSEL	IOCB		; Habilitando interrupciones PORTB
+	movlw	00001111B	
+	movwf	IOCB	
+	
+	BANKSEL PORTA
+	
+	clrf	PORTA
+	clrf PORTD
+	movlw	0000B; 0
+	movwf	PORTC
+	clrf PORTE
+	
+	;Empezar por default
+	clrf W_temp
+	clrf STATUS_temp
+	clrf control_Hz
+	clrf control_Signal
+	clrf control_FR
+    
+	clrf control_On
+	clrf offset_cuadrada
+	clrf cont_FR
+	clrf contador
+	clrf cont_tabla
+	
+	return
+;============ CONFIG INTERRUPCIONES ============	
+	
+    config_int:
+	BANKSEL	INTCON
+	bsf	INTCON, 7 ; GIE
+	bsf	INTCON, 3 ;RBIE
+	bcf	INTCON, 0 ;RBIF
+	;bsf	INTCON, 5 ;T0IE
+	;bcf	INTCON, 2 ;T0IF
+    return
+	
+;============ CONFIG CLK ============ (Este es el que puede variar)
+    
+    config_clk:
+	BANKSEL	OSCCON
+	bsf	OSCCON, 6	; Configuración clk interno (6-4)
+	bsf	OSCCON, 5
+	bsf	OSCCON, 4
+	bsf	OSCCON, 0	; Internal oscillator
+    return
+    config_tmr0:
+	BANKSEL	OPTION_REG
+	movf	cont_FR, W	    ; Guarda offset en W
+	call	tabla_FR ; Llama a la tabla, nos devuelve la configuración del TMR0
+	movwf OPTION_REG
+	
+	BANKSEL PORTA
+	bcf INTCON, 2 ;Limpiamos bandera interrupción tmr0
+	movf	cont_FR, W	    ; Guarda offset en W
+	call	tabla_FR2 ; Llama a la tabla, nos devuelve el valor del TMR0
+	movwf TMR0
+    return
+    config_tmr0_d: ;Mismo que el anterior pero con valores ya colocados
+	BANKSEL	OPTION_REG
+	movlw 01010111B; Preescaler de 256
+	movwf OPTION_REG
+	
+	BANKSEL PORTA
+	bcf INTCON, 2
+	movlw 0xBE ;190 TMR0
+	movwf TMR0
+    return
+   
+;============ inicial ============
+	
+    inicial: ;Loop
+
+	clrf PORTA
+	clrf cont_tabla
+	clrf PORTE
+	clrf control_Hz
+	;kHz o Hz
+	btfsc STATUS, 0
+	bsf control_Hz, 0
+	btfsc   control_Hz, 0     ; Mover el bit 0 de control_Hz al bit 0 PORTE
+	bsf     PORTE, 0
+	btfss   control_Hz, 0     ; Mover el bit 1 de control_Hz al bit 1 PORTE
+	bsf     PORTE, 1
+	
+	btfsc   control_Signal, 0     ; Mover el bit 0 de control_Signal al bit 2 de PORTE
+	bsf     PORTE, 2
+	btfss   control_Signal, 0   
+	bcf PORTE, 2
+	; PORTE:
+	; (0,1) Indica si está en Hz o kHz 
+	;01 Hz (10 a la 1)
+	;10 kHz (10 a la 3)
+	; (2) Indica si está en cuadrada o triangular
+	; 0 cuadrada
+	; 1 triangular
+
+	;Si está encendido el valor de control_On entonces sacamos el valor del DAC
+	btfsc control_On, 0
+	call config_signal
+	;Sino, está en 0
+	
+	call Display_X4 ;Llamamos al display si la señal está apagada
+	movlw 1111B ; Al prenderse la señal se quedan los displays apagados
+	movwf PORTD
+	goto	inicial
+    
+    
+    config_signal:
+	;Cuadrada o triangular 
+	;clrf PORTD 
+	btfsc PORTE, 2 ;Si está en 0 es cuadrada, si está en 1 es triangular
+	call triangular_s
+	btfss PORTE, 2
+	call cuadrada_s
+    return
+    cuadrada_s:
+	btfss control_On, 0 ;Comprobando que este prendido
+	return
+	call config_tmr0 ;configuración del TMR0 con la frecuencia actual
+	btfss INTCON, 2 ;Comprobamos si ya ocurrió la interrupción (hasta que no ocurra, no haremos nada)
+	goto $-1
+	incf contador
+	movf contador, W
+	sublw 11111111B
+	btfss STATUS, 2 
+	goto cuadrada_s
+	movlw 11111111B; 255
+	movwf PORTA ;Empieza en 255 después de la interrupción
+	btfss control_On, 0 ;Comprobando que este prendido
+	return
+	call config_tmr0 ;
+	btfss INTCON, 2
+	goto $-1
+	incf contador
+	movf contador, W
+	sublw 11111111B
+	btfss STATUS, 2 
+	goto $-9
+	clrf PORTA ; Regresa a 0 
+	btfsc control_On, 0 ;Si sigue encendido nos quedamos en la señal cuadrada
+	goto cuadrada_s
+    return ;sino regresamos al loop
+    
+    
+    triangular_s:
+	btfss control_On, 0 ;Comprobando que este prendido
+	return
+	call config_tmr0 ;configuración del TMR0 con la frecuencia actual
+	btfss INTCON, 2 ;Comprobamos si ya ocurrió la interrupción (hasta que no ocurra, no haremos nada)
+	goto $-1
+	incf PORTA
+	movf PORTA, W
+	sublw 11111111B
+	btfss STATUS, 2 
+	goto triangular_s
+	btfss control_On, 0 ;Comprobando que este prendido
+	return
+	call config_tmr0 ;
+	btfss INTCON, 2
+	goto $-1
+	decf PORTA
+	movf PORTA, W
+	btfss STATUS, 2 
+	goto $-8
+	btfsc control_On, 0 ;Si sigue encendido nos quedamos en la señal cuadrada
+	goto triangular_s
+    return ;sino regresamos al loop
+    
+    
+    Display_X4:
+	movf	cont_FR, W	    ; Guarda offset en W
+	call	tabla_D1	    ;Primer dígito de la frecuencia 
+	call	tabla		    ;Llama a la tabla de los números
+	movwf PORTC		    ;Saca el número al PORTC
+	bcf PORTD, 0		    ;Muestra solo un display
+	bsf PORTD, 1
+	bsf PORTD, 2
+	bsf PORTD, 3
+	call delay_mini
+	;Se repite para el siguiente display
+	clrf PORTD
+	movf	cont_FR, W	    ; Guarda offset en W
+	call	tabla_D2	    ;Segundo dígito de la frecuencia 
+	call	tabla
+	movwf PORTC
+	bsf PORTD, 0		
+	bcf PORTD, 1
+	bsf PORTD, 2
+	bsf PORTD, 3
+	call delay_mini
+	;Se repite para el siguiente display
+	clrf PORTD
+	movf	cont_FR, W	    ; Guarda offset en W
+	call	tabla_D3	    ;Tercer dígito de la frecuencia 
+	call	tabla
+	movwf PORTC
+	bsf PORTD, 0
+	bsf PORTD, 1
+	bcf PORTD, 2
+	bsf PORTD, 3
+	call delay_mini
+	;Se repite para el siguiente display
+	clrf PORTD
+	movf	cont_FR, W	    ; Guarda offset en W
+	call	tabla_D4	    ;Último dígito de la frecuencia 
+	call	tabla
+	movwf PORTC
+	bsf PORTD, 0
+	bsf PORTD, 1
+	bsf PORTD, 2
+	bcf PORTD, 3
+	call delay_mini
+    return
+	
+    delay_mini:
+	call config_tmr0_d ;Llama a la configuración del TMR0
+	btfss INTCON,2 
+	goto $-1;Espera a la interrupción
+    return; Sale del delay
+    
+    
+END	
+    
